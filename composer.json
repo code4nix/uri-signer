@@ -1,0 +1,44 @@
+{
+    "name": "code4nix/uri-signer",
+    "description": "uri signer with timeout option",
+    "keywords": [
+        "uri signer",
+        "timeout"
+    ],
+    "type": "contao-bundle",
+    "license": "GPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Marko Cupic",
+            "email": "m.cupic@gmx.ch",
+            "homepage": "https://github.com/code4nix",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/code4nix/uri-signer/issues",
+        "source": "https://github.com/code4nix/uri-signer"
+    },
+    "require": {
+        "php": "^8.2",
+        "symfony/http-foundation": "^5.0 || ^6.0",
+        "symfony/http-kernel": "^5.0 || ^6.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Code4Nix\\UriSigner\\": "src/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "contao-components/installer": false,
+            "contao/manager-plugin": false,
+            "contao-community-alliance/composer-plugin": true
+        }
+    },
+    "scripts": {
+        "cs-fixer": "@php tools/ecs/vendor/bin/ecs check config/ contao/ src/ templates/ tests/ --config tools/ecs/config.php --fix --ansi",
+        "unit-tests": "@php tools/phpunit/vendor/bin/phpunit -c tools/phpunit/phpunit.xml.dist"
+    },
+    "version": "1.0"
+}
