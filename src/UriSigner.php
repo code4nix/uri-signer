@@ -31,7 +31,7 @@ readonly class UriSigner
     public function __construct(
         private string $secret,
         private string $parameter = '_hash',
-        private int $expires = 3600,
+        private int $expiry = 3600,
     ) {
     }
 
@@ -39,13 +39,15 @@ readonly class UriSigner
      * Signs a URI.
      *
      * The given URI is signed by adding the query string parameter
-     * which value depends on the URI, the timeout and the secret.
+     * which value depends on the URI, the expiry and the secret.
+     *
+     * @param int|null $expiry expiration time in seconds (default to 86400)
      *
      * @throws \Exception
      */
-    public function sign(string $uri, int|null $timeout = null): string
+    public function sign(string $uri, int|null $expiry = null): string
     {
-        $timeout = $timeout ?? $this->expires;
+        $timeout = $expiry ?? $this->expiry;
 
         $url = parse_url($uri);
 
@@ -56,7 +58,7 @@ readonly class UriSigner
         }
 
         if ($timeout < 0) {
-            throw new \Exception('Invalid parameter timeout. The timeout must be an integer.');
+            throw new \Exception('Invalid parameter "$expiry". The expiration time must be an integer larger than 0 and indicates how many seconds the url is valid.');
         }
 
         $strTimeout = $this->getEncodedTimeout(time() + $timeout);

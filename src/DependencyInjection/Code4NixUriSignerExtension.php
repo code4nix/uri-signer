@@ -50,6 +50,6 @@ class Code4NixUriSignerExtension extends Extension
         $rootKey = $this->getAlias();
 
         $container->setParameter($rootKey.'.parameter', $config['parameter']);
-        $container->setParameter($rootKey.'.expires', $config['expires']);
+        $container->setParameter($rootKey.'.expiry', $config['expiry']);
     }
 }
