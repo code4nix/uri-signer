@@ -47,6 +47,7 @@ readonly class UriSigner
      */
     public function sign(string $uri, int|null $expiry = null): string
     {
+        // Override from configuration if empty
         $timeout = $expiry ?? $this->expiry;
 
         $url = parse_url($uri);
@@ -61,10 +62,10 @@ readonly class UriSigner
             throw new \Exception('Invalid parameter "$expiry". The expiration time must be an integer larger than 0 and indicates how many seconds the url is valid.');
         }
 
-        $strTimeout = $this->getEncodedTimeout(time() + $timeout);
+        $strEncodedExpiration = $this->encodeExpiration(time() + $timeout);
 
-        $uri = $this->buildUrl($url, $params).$strTimeout;
-        $params[$this->parameter] = base64_encode($this->computeHash($uri).'.'.$strTimeout);
+        $uri = $this->buildUrl($url, $params).$strEncodedExpiration;
+        $params[$this->parameter] = base64_encode($this->computeHash($uri).'.'.$strEncodedExpiration);
 
         return $this->buildUrl($url, $params);
     }
@@ -86,18 +87,19 @@ readonly class UriSigner
             return false;
         }
 
-        $timeout = $this->getTimeoutFromHash($params[$this->parameter]);
+        $expirationTime = $this->getExpirationTimeFromHash($params[$this->parameter]);
         $hash = $this->getHashCodeFromHash($params[$this->parameter]);
 
-        if ($timeout < time()) {
+        // Check if url has expired
+        if ($expirationTime < time()) {
             return false;
         }
 
         unset($params[$this->parameter]);
 
-        $strTimeout = $this->getEncodedTimeout($timeout);
+        $strEncodedExpiration = $this->encodeExpiration($expirationTime);
 
-        return hash_equals($this->computeHash($this->buildUrl($url, $params).$strTimeout), $hash);
+        return hash_equals($this->computeHash($this->buildUrl($url, $params).$strEncodedExpiration), $hash);
     }
 
     public function checkRequest(Request $request): bool
@@ -131,7 +133,7 @@ readonly class UriSigner
         return $scheme.$user.$pass.$host.$port.$path.$query.$fragment;
     }
 
-    private function getTimeoutFromHash(string $hash): int
+    private function getExpirationTimeFromHash(string $hash): int
     {
         $hash = base64_decode($hash, true);
 
@@ -143,8 +145,8 @@ readonly class UriSigner
 
         $arrSecuritySuffix = json_decode(base64_decode($arrHash[1], true), true);
 
-        if (\is_array($arrSecuritySuffix) && isset($arrSecuritySuffix['timeout'])) {
-            return (int) $arrSecuritySuffix['timeout'];
+        if (\is_array($arrSecuritySuffix) && isset($arrSecuritySuffix['expiry'])) {
+            return (int) $arrSecuritySuffix['expiry'];
         }
 
         return 0;
@@ -159,10 +161,10 @@ readonly class UriSigner
         return $arrHash[0];
     }
 
-    private function getEncodedTimeout(int $timeout): string
+    private function encodeExpiration(int $timeout): string
     {
         return base64_encode(json_encode([
-            'timeout' => $timeout,
+            'expiry' => $timeout,
         ]));
     }
 }
