@@ -32,6 +32,8 @@ class Code4NixUriSignerExtension extends Extension
     }
 
     /**
+     * @param array<int|string> $configs
+     *
      * @throws \Exception
      */
     public function load(array $configs, ContainerBuilder $container): void
@@ -50,6 +52,6 @@ class Code4NixUriSignerExtension extends Extension
         $rootKey = $this->getAlias();
 
         $container->setParameter($rootKey.'.parameter', $config['parameter']);
-        $container->setParameter($rootKey.'.expiry', $config['expiry']);
+        $container->setParameter($rootKey.'.expiration', $config['expiration']);
     }
 }

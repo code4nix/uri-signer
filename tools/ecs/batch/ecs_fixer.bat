@@ -7,7 +7,4 @@ cd..
 cd..
 cd..
 php vendor\bin\ecs check vendor/code4nix/uri-signer/src --fix --config vendor/code4nix/uri-signer/tools/ecs/config.php
-php vendor\bin\ecs check vendor/code4nix/uri-signer/contao --fix --config vendor/code4nix/uri-signer/tools/ecs/config.php
 php vendor\bin\ecs check vendor/code4nix/uri-signer/config --fix --config vendor/code4nix/uri-signer/tools/ecs/config.php
-php vendor\bin\ecs check vendor/code4nix/uri-signer/templates --fix --config vendor/code4nix/uri-signer/tools/ecs/config.php
-php vendor\bin\ecs check vendor/code4nix/uri-signer/tests --fix --config vendor/code4nix/uri-signer/tools/ecs/config.php

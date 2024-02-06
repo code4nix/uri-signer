@@ -33,7 +33,7 @@ class Configuration implements ConfigurationInterface
                     ->cannotBeEmpty()
                     ->defaultValue('_hash')
                 ->end()
-                ->integerNode('expiry')
+                ->integerNode('expiration')
                     ->info('Expiration time in seconds')
                     ->defaultValue(3600)
                 ->end()

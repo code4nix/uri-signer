@@ -24,14 +24,14 @@ use Symfony\Component\HttpFoundation\Request;
 readonly class UriSigner
 {
     /**
-     * @param string $secret    A secret
-     * @param string $parameter Query string parameter to use
-     *                          param int $expires defines the time in seconds until the link has expired
+     * @param string $secret     A secret
+     * @param string $parameter  Query string parameter to use
+     * @param int    $expiration defines the time in seconds until the link has expired
      */
     public function __construct(
-        private string $secret,
+        #[\SensitiveParameter] private string $secret,
         private string $parameter = '_hash',
-        private int $expiry = 3600,
+        private int $expiration = 3600,
     ) {
     }
 
@@ -39,35 +39,52 @@ readonly class UriSigner
      * Signs a URI.
      *
      * The given URI is signed by adding the query string parameter
-     * which value depends on the URI, the expiry and the secret.
+     * which value depends on the URI, the expiration and the secret.
      *
-     * @param int|null $expiry expiration time in seconds (default to 86400)
+     * The default expiration is 86400 seconds (1 day).
+     * It can be configured in your config/config.yaml.
+     *
+     * @see https://github.com/code4nix/uri-signer
+     *
+     * @param int|null $expiration expiration time in seconds
      *
      * @throws \Exception
      */
-    public function sign(string $uri, int|null $expiry = null): string
+    public function sign(string $uri, int|null $expiration = null): string
     {
+        $arrUrl = parse_url($uri);
+
+        if (!\is_array($arrUrl)) {
+            throw new \Exception('Invalid parameter #1 $uri detected. The parameter should contain a valid URI.');
+        }
+
         // Override from configuration if empty
-        $timeout = $expiry ?? $this->expiry;
+        $expiration = $expiration ?? $this->expiration;
 
-        $url = parse_url($uri);
+        if ($expiration < 1) {
+            throw new \Exception('Invalid parameter #2 $expiration detected. The expiration time should contain an integer larger than 0 and indicates how many seconds the url is valid.');
+        }
 
-        if (isset($url['query'])) {
-            parse_str($url['query'], $params);
+        if (isset($arrUrl['query'])) {
+            parse_str($arrUrl['query'], $params);
         } else {
             $params = [];
         }
 
-        if ($timeout < 0) {
-            throw new \Exception('Invalid parameter "$expiry". The expiration time must be an integer larger than 0 and indicates how many seconds the url is valid.');
-        }
+        $expiration = time() + $expiration;
 
-        $strEncodedExpiration = $this->encodeExpiration(time() + $timeout);
+        $params['expiration'] = $expiration;
 
-        $uri = $this->buildUrl($url, $params).$strEncodedExpiration;
-        $params[$this->parameter] = base64_encode($this->computeHash($uri).'.'.$strEncodedExpiration);
+        $uri = $this->buildUrl($arrUrl, $params);
 
-        return $this->buildUrl($url, $params);
+        $params[$this->parameter] = base64_encode(json_encode([
+            'hashed' => $this->computeHash($uri),
+            'expiration' => $expiration,
+        ]));
+
+        unset($params['expiration']);
+
+        return $this->buildUrl($arrUrl, $params);
     }
 
     /**
@@ -75,10 +92,14 @@ readonly class UriSigner
      */
     public function check(string $uri): bool
     {
-        $url = parse_url($uri);
+        $arrUrl = parse_url($uri);
 
-        if (isset($url['query'])) {
-            parse_str($url['query'], $params);
+        if (!\is_array($arrUrl)) {
+            return false;
+        }
+
+        if (isset($arrUrl['query'])) {
+            parse_str($arrUrl['query'], $params);
         } else {
             $params = [];
         }
@@ -87,19 +108,18 @@ readonly class UriSigner
             return false;
         }
 
-        $expirationTime = $this->getExpirationTimeFromHash($params[$this->parameter]);
-        $hash = $this->getHashCodeFromHash($params[$this->parameter]);
+        $expiration = $this->getExpirationFromParameter($params[$this->parameter]);
+        $hash = $this->getHashedUrlFromParameter($params[$this->parameter]);
 
-        // Check if url has expired
-        if ($expirationTime < time()) {
+        // Check for expired url and empty hash
+        if ($expiration < time() || empty($hash)) {
             return false;
         }
 
         unset($params[$this->parameter]);
+        $params['expiration'] = $expiration;
 
-        $strEncodedExpiration = $this->encodeExpiration($expirationTime);
-
-        return hash_equals($this->computeHash($this->buildUrl($url, $params).$strEncodedExpiration), $hash);
+        return hash_equals($this->computeHash($this->buildUrl($arrUrl, $params)), $hash);
     }
 
     public function checkRequest(Request $request): bool
@@ -115,56 +135,45 @@ readonly class UriSigner
         return base64_encode(hash_hmac('sha256', $uri, $this->secret, true));
     }
 
-    private function buildUrl(array $url, array $params = []): string
+    private function buildUrl(array $arrUrl, array $params = []): string
     {
         ksort($params, SORT_STRING);
-        $url['query'] = http_build_query($params, '', '&');
+        $arrUrl['query'] = http_build_query($params, '', '&');
 
-        $scheme = isset($url['scheme']) ? $url['scheme'].'://' : '';
-        $host = $url['host'] ?? '';
-        $port = isset($url['port']) ? ':'.$url['port'] : '';
-        $user = $url['user'] ?? '';
-        $pass = isset($url['pass']) ? ':'.$url['pass'] : '';
+        $scheme = isset($arrUrl['scheme']) ? $arrUrl['scheme'].'://' : '';
+        $host = $arrUrl['host'] ?? '';
+        $port = isset($arrUrl['port']) ? ':'.$arrUrl['port'] : '';
+        $user = $arrUrl['user'] ?? '';
+        $pass = isset($arrUrl['pass']) ? ':'.$arrUrl['pass'] : '';
         $pass = $user || $pass ? "$pass@" : '';
-        $path = $url['path'] ?? '';
-        $query = $url['query'] ? '?'.$url['query'] : '';
-        $fragment = isset($url['fragment']) ? '#'.$url['fragment'] : '';
+        $path = $arrUrl['path'] ?? '';
+        $query = $arrUrl['query'] ? '?'.$arrUrl['query'] : '';
+        $fragment = isset($arrUrl['fragment']) ? '#'.$arrUrl['fragment'] : '';
 
         return $scheme.$user.$pass.$host.$port.$path.$query.$fragment;
     }
 
-    private function getExpirationTimeFromHash(string $hash): int
+    private function getExpirationFromParameter(string $hash): int
     {
-        $hash = base64_decode($hash, true);
-
-        $arrHash = explode('.', $hash);
-
-        if (empty($arrHash[1])) {
+        try {
+            $arrHash = json_decode(base64_decode($hash, true), true);
+            $expiration = (int) $arrHash['expiration'];
+        } catch (\Exception $e) {
             return 0;
         }
 
-        $arrSecuritySuffix = json_decode(base64_decode($arrHash[1], true), true);
+        return $expiration;
+    }
 
-        if (\is_array($arrSecuritySuffix) && isset($arrSecuritySuffix['expiry'])) {
-            return (int) $arrSecuritySuffix['expiry'];
+    private function getHashedUrlFromParameter(string $hash): string
+    {
+        try {
+            $arrHash = json_decode(base64_decode($hash, true), true);
+            $hashed = trim($arrHash['hashed']);
+        } catch (\Exception $e) {
+            return '';
         }
 
-        return 0;
-    }
-
-    private function getHashCodeFromHash(string $hash): string
-    {
-        $hash = base64_decode($hash, true);
-
-        $arrHash = explode('.', $hash);
-
-        return $arrHash[0];
-    }
-
-    private function encodeExpiration(int $timeout): string
-    {
-        return base64_encode(json_encode([
-            'expiry' => $timeout,
-        ]));
+        return $hashed;
     }
 }

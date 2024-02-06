@@ -1,14 +1,12 @@
-# config/services.yaml
 services:
-    _defaults:
-        autowire: true          # Automatically injects dependencies in your services.
-        autoconfigure: true     # Automatically registers your services as commands, event subscribers, etc.
-        public: false           # Allows optimizing the container by removing unused services; this also means
 
-    code4nix_uri_signer.uri_signer:
-        class: Code4Nix\UriSigner\UriSigner
-        public: true
+    Code4Nix\UriSigner\UriSigner:
+        public: false
         arguments:
             - '%kernel.secret%'
             - '%code4nix_uri_signer.parameter%'
-            - '%code4nix_uri_signer.expiry%'
+            - '%code4nix_uri_signer.expiration%'
+
+    code4nix_uri_signer.uri_signer:
+        alias: Code4Nix\UriSigner\UriSigner
+        public: true
