@@ -3,6 +3,7 @@ This bundle is a further development of the Symfony Uri Signer. You can specify 
 
 **ATTENTION**: This repo is still in early development and subject to changes!
 
+## Usage in your controller:
 ```php
 <?php
 
@@ -62,7 +63,7 @@ class UriSignerTestController extends AbstractController
 }
 ```
 
-## Configuration
+## Configuration:
 
 The default expiration and the parameter are configurable:
 
