@@ -15,11 +15,13 @@ To create a signed uri with an expiration time of 1 day (default), you can use `
 You can add a second parameter `$intExpires` to add a custom expiration time. Use `$this->uriSigner->sign($strUri, 600)` to get an uri with an expiration time of 10 minutes.
 
 ### Check the signed uri/request
-To check the uri you can use `$this->uriSigner->chech($strUri)`. Instead of building an uri you can use the `$this->uriSigner->checkRequest($request)` method
+To check the uri you can use `$this->uriSigner->check($strUri)`.
+
+Instead of building an uri you can use the `$this->uriSigner->checkRequest($request)` method
  and pass a `Symfony\Component\HttpFoundation\Request` object to check the signature of its related URL.
 
 ### Error management
-Alternatively you can run `chech()` or `checkRequest()` with a second optional boolean parameter `$this->uriSigner->chech($strUri, true)`, which will raise exceptions if an url cannot be verified (e.g. has been tampered, has expired or is a malformed url).
+Alternatively you can run `check()` or `checkRequest()` with a second optional boolean parameter `$this->uriSigner->check($strUri, true)` or `$this->uriSigner->checkRequest($request, true)`, which will raise exceptions if an url cannot be verified (e.g. has been tampered, has expired or is a malformed url).
 
 - `MalformedUriException`
 - `InvalidSignatureException`
@@ -79,7 +81,7 @@ class UriSignerTestController extends AbstractController
         } catch (InvalidSignatureException $e) {
             $responseText = 'Invalid signature detected! The URI could have been tampered.';
         } catch (\Exception $e) {
-            $responseText = 'Oh, la, la! Something went wrong';
+            $responseText = 'Oh, la, la! Something went wrong ;-(';
         }
 
         return new Response($responseText);
