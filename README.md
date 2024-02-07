@@ -1,6 +1,6 @@
 # Uri Signer with expiration support for Symfony framework
 Create and check signed URLs with expiration time support.
-This bundle is a further development of the Symfony's [Uri Signer](https://github.com/symfony/symfony/blob/7.1/src/Symfony/Component/HttpFoundation/UriSigner.php).
+This bundle is a further development of Symfony's [Uri Signer](https://github.com/symfony/symfony/blob/7.1/src/Symfony/Component/HttpFoundation/UriSigner.php).
 
 ## Installation
 
@@ -12,16 +12,16 @@ composer require code4nix/uri-signer
 
 ### Create a signed URL
 To create a signed URL with an expiration time of 1 day (default), you can use `$this->uriSigner->sign($strUri)`.
-You can add a second parameter `$intExpires` to add a custom expiration time. Use `$this->uriSigner->sign($strUri, 600)` to get a URL with an expiration time of 10 minutes.
+You can add a second parameter `$intExpires` to add a custom expiration time. E.g. call `$this->uriSigner->sign($strUri, 600)` to get a URL with an expiration time of 10 minutes.
 
 ### Check the signed URL/request
 To check the URL you can use `$this->uriSigner->check($strUri)`.
 
-Instead of building a URL you can use the `$this->uriSigner->checkRequest($request)` method
- and pass a `Symfony\Component\HttpFoundation\Request` object to check the signature of its related URL. Both methods return boolean `true` if the URL passes the check, or boolean `false` if the URL is invalid or expired.
+Instead of building a URL you can call `$this->uriSigner->checkRequest($request)` method
+ and pass a `Symfony\Component\HttpFoundation\Request` object to check the signature of its related URL. Both methods return boolean `true` if the URL passes validation, or boolean `false` if the URL is invalid or expired.
 
 ### Error handling
-Alternatively you can run `check()` or `checkRequest()` with a second optional boolean parameter `$this->uriSigner->check($strUri, true)` or `$this->uriSigner->checkRequest($request, true)`, which will raise exceptions if a URL cannot be verified (e.g. has been tampered, has expired or is a malformed URL).
+Alternatively you can run the `check()` or `checkRequest()` methods with a second optional boolean parameter `$this->uriSigner->check($strUri, true)` or `$this->uriSigner->checkRequest($request, true)`, which will raise exceptions if a URL cannot be verified (e.g. has been tampered, has expired or is a malformed URL).
 
 - `MalformedUriException`
 - `InvalidSignatureException`
