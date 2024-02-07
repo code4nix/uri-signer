@@ -16,10 +16,13 @@ declare(strict_types=1);
 
 namespace Code4Nix\UriSigner;
 
+use Code4Nix\UriSigner\Exception\ExpiredLinkException;
+use Code4Nix\UriSigner\Exception\InvalidSignatureException;
+use Code4Nix\UriSigner\Exception\MalformedUriException;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Signs URIs with optional timeout.
+ * Signs URIs with expiration time support.
  */
 readonly class UriSigner
 {
@@ -73,28 +76,35 @@ readonly class UriSigner
 
         $expiration = time() + $expiration;
 
+        // Append the expiration time temporarily to the url
         $params['expiration'] = $expiration;
 
         $uri = $this->buildUrl($arrUrl, $params);
+        $signature = $this->computeHash($uri);
 
         $params[$this->parameter] = base64_encode(json_encode([
-            'hashed' => $this->computeHash($uri),
+            'signature' => $signature,
             'expiration' => $expiration,
         ]));
 
+        // Return the url without the expiration time
         unset($params['expiration']);
 
         return $this->buildUrl($arrUrl, $params);
     }
 
     /**
-     * Checks that a URI contains the correct hash.
+     * Checks that a URI contains the correct signature.
      */
-    public function check(string $uri): bool
+    public function check(string $uri, bool $throwExceptions = false): bool
     {
         $arrUrl = parse_url($uri);
 
         if (!\is_array($arrUrl)) {
+            if ($throwExceptions) {
+                throw new MalformedUriException(sprintf('Malformed URI detected. Parsing the URI failed! "%s".', $uri), 1);
+            }
+
             return false;
         }
 
@@ -105,29 +115,54 @@ readonly class UriSigner
         }
 
         if (empty($params[$this->parameter])) {
+            if ($throwExceptions) {
+                throw new MalformedUriException(sprintf('Malformed URI detected. Missing or empty "%s" query parameter! "%s".', $this->parameter, $uri), 2);
+            }
+
             return false;
         }
 
-        $expiration = $this->getExpirationFromParameter($params[$this->parameter]);
-        $hash = $this->getHashedUrlFromParameter($params[$this->parameter]);
+        $expiration = $this->getExpirationTimeFromParameter($params[$this->parameter]);
 
-        // Check for expired url and empty hash
-        if ($expiration < time() || empty($hash)) {
+        // Check link expiration
+        if ($expiration < time()) {
+            if ($throwExceptions) {
+                throw new ExpiredLinkException(sprintf('The link has expired on "%s".', date('r', $expiration)), 3);
+            }
+
+            return false;
+        }
+
+        $params['expiration'] = $expiration;
+
+        $signature = $this->getSignatureFromParameter($params[$this->parameter]);
+
+        // Check if there is a signature
+        if (empty($signature)) {
+            if ($throwExceptions) {
+                throw new InvalidSignatureException(sprintf('Signature not found in "%s".', $uri), 4);
+            }
+
             return false;
         }
 
         unset($params[$this->parameter]);
-        $params['expiration'] = $expiration;
 
-        return hash_equals($this->computeHash($this->buildUrl($arrUrl, $params)), $hash);
+        $blnValid = hash_equals($this->computeHash($this->buildUrl($arrUrl, $params)), $signature);
+
+        if ($throwExceptions) {
+            throw new InvalidSignatureException(sprintf('Invalid signature detected "%s". The URI could have been tampered.', $signature), 5);
+        }
+
+        return $blnValid;
     }
 
-    public function checkRequest(Request $request): bool
+    public function checkRequest(Request $request, bool $throwExceptions = false): bool
     {
         $qs = ($qs = $request->server->get('QUERY_STRING')) ? '?'.$qs : '';
 
         // we cannot use $request->getUri() here as we want to work with the original URI (no query string reordering)
-        return $this->check($request->getSchemeAndHttpHost().$request->getBaseUrl().$request->getPathInfo().$qs);
+        return $this->check($request->getSchemeAndHttpHost().$request->getBaseUrl().$request->getPathInfo().$qs, $throwExceptions);
     }
 
     private function computeHash(string $uri): string
@@ -153,27 +188,27 @@ readonly class UriSigner
         return $scheme.$user.$pass.$host.$port.$path.$query.$fragment;
     }
 
-    private function getExpirationFromParameter(string $hash): int
+    private function getExpirationTimeFromParameter(string $hash): int
     {
         try {
             $arrHash = json_decode(base64_decode($hash, true), true);
             $expiration = (int) $arrHash['expiration'];
-        } catch (\Exception $e) {
+        } catch (\Exception) {
             return 0;
         }
 
         return $expiration;
     }
 
-    private function getHashedUrlFromParameter(string $hash): string
+    private function getSignatureFromParameter(string $hash): string
     {
         try {
             $arrHash = json_decode(base64_decode($hash, true), true);
-            $hashed = trim($arrHash['hashed']);
-        } catch (\Exception $e) {
+            $signature = trim($arrHash['signature']);
+        } catch (\Exception) {
             return '';
         }
 
-        return $hashed;
+        return $signature;
     }
 }
